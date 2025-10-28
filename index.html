@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLA Generator (v2)</title>
+    <title>SLA Generator (v3)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body {
@@ -93,19 +93,29 @@
             margin: auto;
         }
 
-        /* This is your colorful header */
+        /* --- NEW HEADER STYLES --- */
         #sla-header {
             background: linear-gradient(90deg, #4a90e2, #50e3c2);
             color: white;
-            padding: 25px;
+            padding: 20px 25px; /* Adjusted padding */
             text-align: center;
             border-radius: 8px 8px 0 0;
+            display: flex; /* Use flexbox for alignment */
+            justify-content: space-between; /* Pushes items to edges and center */
+            align-items: center; /* Vertically center */
         }
         #sla-header h2 {
             margin: 0;
             color: white;
             font-size: 24px;
         }
+        .sla-logo {
+            max-height: 60px; /* Control logo height */
+            max-width: 180px; /* Control logo width */
+            object-fit: contain;
+        }
+        /* --- END NEW HEADER STYLES --- */
+
 
         #sla-content {
             padding: 30px;
@@ -169,6 +179,14 @@
     <div id="form-container">
         <h2>SLA Generator</h2>
 
+        <div class="form-group">
+            <label for="providerLogo">Your (Provider) Logo URL</label>
+            <input type="text" id="providerLogo" placeholder="https://your-site.com/logo.png">
+        </div>
+        <div class="form-group">
+            <label for="clientLogo">Customer Logo URL</label>
+            <input type="text" id="clientLogo" placeholder="https://client-site.com/logo.png">
+        </div>
         <div class="form-group">
             <label for="providerName">Marketing Provider Name</label>
             <input type="text" id="providerName" value="Nexus">
@@ -261,7 +279,9 @@ QR Code System Integration, 5000</textarea>
         <h2>Live Preview</h2>
         <div id="sla-output">
             <div id="sla-header">
+                <img id="out-providerLogo" src="" alt="Provider Logo" class="sla-logo hidden">
                 <h2>MARKETING SERVICE LEVEL AGREEMENT (SLA)</h2>
+                <img id="out-clientLogo" src="" alt="Client Logo" class="sla-logo hidden">
             </div>
             <div id="sla-content">
                 <p>This Agreement is made on <strong id="out-agreementDate">...</strong>, between <strong id="out-providerName">...</strong>, hereinafter referred to as "Marketing Provider," and <strong id="out-clientName">...</strong>, hereinafter referred to as "Client."</p>
@@ -280,7 +300,6 @@ QR Code System Integration, 5000</textarea>
                 <ul id="out-clientRoles"></ul>
 
                 <h3>6. Payment:</h3>
-
                 <div id="out-monthly-payment" class="hidden">
                     <h4>Monthly Fees</h4>
                     <p>Payment date is on the <strong id="out-paymentDay">...</strong> of each month.</p>
@@ -293,7 +312,6 @@ QR Code System Integration, 5000</textarea>
                         </tr></tfoot>
                     </table>
                 </div>
-
                 <div id="out-onetime-payment" class="hidden">
                     <h4>One-Time Fees</h4>
                     <table class="payment-table">
@@ -305,7 +323,6 @@ QR Code System Integration, 5000</textarea>
                         </tr></tfoot>
                     </table>
                 </div>
-
                 <div id="out-grand-total" class="grand-total-row hidden">
                     <strong>Grand Total:</strong> <span id="out-grandTotalValue">...</span> EGP
                 </div>
@@ -362,9 +379,26 @@ QR Code System Integration, 5000</textarea>
             document.getElementById(tfootTotalId).textContent = total.toLocaleString();
         }
 
+        // --- NEW Helper function to handle logo display ---
+        function updateLogo(elementId, url) {
+            const logoEl = document.getElementById(elementId);
+            if (url) {
+                logoEl.src = url;
+                logoEl.classList.remove('hidden');
+            } else {
+                logoEl.src = '';
+                logoEl.classList.add('hidden');
+            }
+        }
+
         // Main function to update preview and generate PDF
         function generateSLA(isPdfDownload = false) {
             // --- 1. GET ALL VARIABLES FROM THE FORM ---
+            
+            // --- NEW Logo URLs ---
+            const providerLogoUrl = document.getElementById('providerLogo').value;
+            const clientLogoUrl = document.getElementById('clientLogo').value;
+
             const providerName = document.getElementById('providerName').value;
             const clientName = document.getElementById('clientName').value;
             const agreementDate = document.getElementById('agreementDate').value;
@@ -386,13 +420,16 @@ QR Code System Integration, 5000</textarea>
             // --- Payment Variables ---
             const paymentType = document.getElementById('paymentType').value;
             const paymentDay = document.getElementById('paymentDay').value;
-            
             const monthlyData = parsePaymentItems('monthlyPaymentItems');
             const oneTimeData = parsePaymentItems('oneTimePaymentItems');
             const grandTotal = monthlyData.totalCost + oneTimeData.totalCost;
 
             // --- 2. POPULATE THE PREVIEW PANE ---
             
+            // --- NEW: Update Logos ---
+            updateLogo('out-providerLogo', providerLogoUrl);
+            updateLogo('out-clientLogo', clientLogoUrl);
+
             // Helper function to create bullet points
             function createList(elementId, items) {
                 const ul = document.getElementById(elementId);
@@ -430,7 +467,6 @@ QR Code System Integration, 5000</textarea>
             const onetimeDiv = document.getElementById('out-onetime-payment');
             const grandTotalDiv = document.getElementById('out-grand-total');
             
-            // Clear/hide all first
             monthlyDiv.classList.add('hidden');
             onetimeDiv.classList.add('hidden');
             grandTotalDiv.classList.add('hidden');
@@ -458,7 +494,7 @@ QR Code System Integration, 5000</textarea>
                     margin:       0.5,
                     filename:     `SLA_${providerName}_${clientName}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true },
+                    html2canvas:  { scale: 2, useCORS: true }, // useCORS is important for external images
                     jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
                 };
                 html2pdf().set(opt).from(element).save();
