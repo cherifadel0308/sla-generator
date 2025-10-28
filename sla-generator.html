@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLA Generator (v2)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 30px;
+        }
+
+        h1, h2, h3 { color: #333; }
+        
+        #form-container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #form-container h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        input[type="text"], input[type="date"], input[type="number"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Important for padding to work right */
+        }
+        textarea {
+            min-height: 100px;
+            font-family: inherit;
+        }
+        fieldset {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        legend {
+            font-weight: 600;
+            padding: 0 5px;
+            color: #333;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover { background-color: #0056b3; }
+
+        #preview-container {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 30px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* This is the PDF output style */
+        #sla-output {
+            font-family: Arial, sans-serif;
+            color: #333;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        /* This is your colorful header */
+        #sla-header {
+            background: linear-gradient(90deg, #4a90e2, #50e3c2);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        #sla-header h2 {
+            margin: 0;
+            color: white;
+            font-size: 24px;
+        }
+
+        #sla-content {
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: #fff;
+        }
+        #sla-content h3 {
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+            color: #4a90e2;
+            margin-top: 25px;
+        }
+        #sla-content h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        ul, ol {
+            padding-left: 20px;
+        }
+        li {
+            line-height: 1.6;
+        }
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+        .payment-table th, .payment-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .payment-table th {
+            background-color: #f9f9f9;
+        }
+        .payment-table .subtotal-row {
+            font-weight: bold;
+            background-color: #f4f7f6;
+        }
+        .grand-total-row {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e6f7ff;
+            border: 1px solid #b3e0ff;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+            text-align: right;
+        }
+        .hidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="form-container">
+        <h2>SLA Generator</h2>
+
+        <div class="form-group">
+            <label for="providerName">Marketing Provider Name</label>
+            <input type="text" id="providerName" value="Nexus">
+        </div>
+        <div class="form-group">
+            <label for="clientName">Client Name</label>
+            <input type="text" id="clientName" value="Valentina">
+        </div>
+        <div class="form-group">
+            <label for="agreementDate">Agreement Date</label>
+            <input type="text" id="agreementDate" value="3rd April 2025">
+        </div>
+
+        <h3>1. Service Description</h3>
+        <div class="form-group">
+            <label for="serviceList">List of services (one per line)</label>
+            <textarea id="serviceList">Digital marketing (Facebook / Instagram)
+Content creation (photos & Videos)
+Social media management : 15 posts + 3 reels</textarea>
+        </div>
+
+        <h3>2. Performance Metrics</h3>
+        <div class="form-group">
+            <label for="kpiList">KPIs (format: Name, Target)</label>
+            <textarea id="kpiList">Lead generation target, 50
+Website traffic goal, 100
+Conversion rate, 2%
+Google reviews, 30 reviews</textarea>
+        </div>
+
+        <h3>3. Delivery Timelines</h3>
+        <div class="form-group">
+            <label for="startDate">Start Date</label>
+            <input type="text" id="startDate" value="3rd of April 2025">
+        </div>
+        <div class="form-group">
+            <label for="endDate">End Date</label>
+            <input type="text" id="endDate" value="3rd of May 2025">
+        </div>
+
+        <h3>4. Roles & Responsibilities</h3>
+        <div class="form-group">
+            <label for="providerRoles">Marketing Provider Roles (one per line)</label>
+            <textarea id="providerRoles">Marketing Strategy for April
+Content creation including (photos/video)
+Ads Management Facebook / Instagram</textarea>
+        </div>
+        <div class="form-group">
+            <label for="clientRoles">Client Roles (one per line)</label>
+            <textarea id="clientRoles">Access on social media and google business manager
+Shooting preparation with his staff and place</textarea>
+        </div>
+        
+        <h3>6. Payment</h3>
+        <div class="form-group">
+            <label for="paymentType">Payment Structure</label>
+            <select id="paymentType" onchange="togglePaymentSections()">
+                <option value="both">Show Both</option>
+                <option value="monthly">Monthly Only</option>
+                <option value="onetime">One-Time Only</option>
+            </select>
+        </div>
+        
+        <fieldset id="monthly-payment-form">
+            <legend>Monthly Payments</legend>
+            <div class="form-group">
+                <label for="paymentDay">Payment Day of Month</label>
+                <input type="text" id="paymentDay" value="3rd">
+            </div>
+            <div class="form-group">
+                <label for="monthlyPaymentItems">Monthly Items (format: Item, Cost)</label>
+                <textarea id="monthlyPaymentItems">Marketing fees, 45000
+Ads cost, 35000</textarea>
+            </div>
+        </fieldset>
+
+        <fieldset id="onetime-payment-form">
+            <legend>One-Time Payments</legend>
+            <div class="form-group">
+                <label for="oneTimePaymentItems">One-Time Items (format: Item, Cost)</label>
+                <textarea id="oneTimePaymentItems">Booking System Setup, 15000
+QR Code System Integration, 5000</textarea>
+            </div>
+        </fieldset>
+        
+        <button onclick="generateSLA()">Generate & Download PDF</button>
+    </div>
+
+    <div id="preview-container">
+        <h2>Live Preview</h2>
+        <div id="sla-output">
+            <div id="sla-header">
+                <h2>MARKETING SERVICE LEVEL AGREEMENT (SLA)</h2>
+            </div>
+            <div id="sla-content">
+                <p>This Agreement is made on <strong id="out-agreementDate">...</strong>, between <strong id="out-providerName">...</strong>, hereinafter referred to as "Marketing Provider," and <strong id="out-clientName">...</strong>, hereinafter referred to as "Client."</p>
+                <hr>
+
+                <h3>1. Service description:</h3>
+                <ul id="out-serviceList"></ul>
+                <h3>2. Performance metrics and standards:</h3>
+                <ul id="out-kpiList"></ul>
+                <h3>3. Delivery timelines:</h3>
+                <ul><li>From <strong id="out-startDate">...</strong> to <strong id="out-endDate">...</strong></li></ul>
+                <h3>4. Roles and responsibilities:</h3>
+                <strong>Marketing provider:</strong>
+                <ul id="out-providerRoles"></ul>
+                <strong>Client:</strong>
+                <ul id="out-clientRoles"></ul>
+
+                <h3>6. Payment:</h3>
+
+                <div id="out-monthly-payment" class="hidden">
+                    <h4>Monthly Fees</h4>
+                    <p>Payment date is on the <strong id="out-paymentDay">...</strong> of each month.</p>
+                    <table class="payment-table">
+                        <thead><tr><th>Service / Item</th><th>Cost (EGP)</th></tr></thead>
+                        <tbody id="out-monthlyPaymentItems"></tbody>
+                        <tfoot><tr class="subtotal-row">
+                            <td><strong>Monthly Total</strong></td>
+                            <td><strong id="out-monthlyTotal">...</strong> EGP</td>
+                        </tr></tfoot>
+                    </table>
+                </div>
+
+                <div id="out-onetime-payment" class="hidden">
+                    <h4>One-Time Fees</h4>
+                    <table class="payment-table">
+                        <thead><tr><th>Service / Item</th><th>Cost (EGP)</th></tr></thead>
+                        <tbody id="out-oneTimePaymentItems"></tbody>
+                        <tfoot><tr class="subtotal-row">
+                            <td><strong>One-Time Total</strong></td>
+                            <td><strong id="out-oneTimeTotal">...</strong> EGP</td>
+                        </tr></tfoot>
+                    </table>
+                </div>
+
+                <div id="out-grand-total" class="grand-total-row hidden">
+                    <strong>Grand Total:</strong> <span id="out-grandTotalValue">...</span> EGP
+                </div>
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to show/hide form sections
+        function togglePaymentSections() {
+            const paymentType = document.getElementById('paymentType').value;
+            const monthlyForm = document.getElementById('monthly-payment-form');
+            const onetimeForm = document.getElementById('onetime-payment-form');
+
+            if (paymentType === 'monthly') {
+                monthlyForm.style.display = 'block';
+                onetimeForm.style.display = 'none';
+            } else if (paymentType === 'onetime') {
+                monthlyForm.style.display = 'none';
+                onetimeForm.style.display = 'block';
+            } else { // 'both'
+                monthlyForm.style.display = 'block';
+                onetimeForm.style.display = 'block';
+            }
+        }
+        
+        // Helper function to parse item lists (format: "Item, Cost")
+        function parsePaymentItems(textareaId) {
+            const itemsInput = document.getElementById(textareaId).value.split('\n');
+            let totalCost = 0;
+            const items = itemsInput
+                .filter(line => line.trim() !== '') // Ignore empty lines
+                .map(item => {
+                    const parts = item.split(',');
+                    const name = parts[0] ? parts[0].trim() : '';
+                    const cost = parseFloat(parts[1] ? parts[1].trim() : 0);
+                    if (!isNaN(cost)) {
+                        totalCost += cost;
+                    }
+                    return { name, cost: cost.toLocaleString() }; // Format cost with commas
+                });
+            return { items, totalCost };
+        }
+        
+        // Helper function to populate a payment table in the preview
+        function populatePaymentTable(tbodyId, tfootId, tfootTotalId, items, total) {
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = ''; // Clear old items
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${item.name}</td><td>${item.cost} EGP</td>`;
+                tbody.appendChild(tr);
+            });
+            document.getElementById(tfootTotalId).textContent = total.toLocaleString();
+        }
+
+        // Main function to update preview and generate PDF
+        function generateSLA(isPdfDownload = false) {
+            // --- 1. GET ALL VARIABLES FROM THE FORM ---
+            const providerName = document.getElementById('providerName').value;
+            const clientName = document.getElementById('clientName').value;
+            const agreementDate = document.getElementById('agreementDate').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            const serviceList = document.getElementById('serviceList').value.split('\n').filter(s => s.trim() !== '');
+            const providerRoles = document.getElementById('providerRoles').value.split('\n').filter(s => s.trim() !== '');
+            const clientRoles = document.getElementById('clientRoles').value.split('\n').filter(s => s.trim() !== '');
+            
+            const kpiInput = document.getElementById('kpiList').value.split('\n');
+            const kpiList = kpiInput
+                .filter(line => line.trim() !== '')
+                .map(item => {
+                    const parts = item.split(',');
+                    return { name: parts[0] ? parts[0].trim() : '', target: parts[1] ? parts[1].trim() : '' };
+                });
+            
+            // --- Payment Variables ---
+            const paymentType = document.getElementById('paymentType').value;
+            const paymentDay = document.getElementById('paymentDay').value;
+            
+            const monthlyData = parsePaymentItems('monthlyPaymentItems');
+            const oneTimeData = parsePaymentItems('oneTimePaymentItems');
+            const grandTotal = monthlyData.totalCost + oneTimeData.totalCost;
+
+            // --- 2. POPULATE THE PREVIEW PANE ---
+            
+            // Helper function to create bullet points
+            function createList(elementId, items) {
+                const ul = document.getElementById(elementId);
+                ul.innerHTML = ''; // Clear old items
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    ul.appendChild(li);
+                });
+            }
+
+            // Populate simple text
+            document.getElementById('out-providerName').textContent = providerName;
+            document.getElementById('out-clientName').textContent = clientName;
+            document.getElementById('out-agreementDate').textContent = agreementDate;
+            document.getElementById('out-startDate').textContent = startDate;
+            document.getElementById('out-endDate').textContent = endDate;
+
+            // Populate lists
+            createList('out-serviceList', serviceList);
+            createList('out-providerRoles', providerRoles);
+            createList('out-clientRoles', clientRoles);
+            
+            // Populate KPI list
+            const kpiUl = document.getElementById('out-kpiList');
+            kpiUl.innerHTML = '';
+            kpiList.forEach(kpi => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${kpi.name}:</strong> ${kpi.target}`;
+                kpiUl.appendChild(li);
+            });
+            
+            // --- Populate Payment Section (with show/hide logic) ---
+            const monthlyDiv = document.getElementById('out-monthly-payment');
+            const onetimeDiv = document.getElementById('out-onetime-payment');
+            const grandTotalDiv = document.getElementById('out-grand-total');
+            
+            // Clear/hide all first
+            monthlyDiv.classList.add('hidden');
+            onetimeDiv.classList.add('hidden');
+            grandTotalDiv.classList.add('hidden');
+
+            if (paymentType === 'monthly' || paymentType === 'both') {
+                document.getElementById('out-paymentDay').textContent = paymentDay;
+                populatePaymentTable('out-monthlyPaymentItems', 'out-monthlyTotal-row', 'out-monthlyTotal', monthlyData.items, monthlyData.totalCost);
+                monthlyDiv.classList.remove('hidden');
+            }
+            
+            if (paymentType === 'onetime' || paymentType === 'both') {
+                populatePaymentTable('out-oneTimePaymentItems', 'out-oneTimeTotal-row', 'out-oneTimeTotal', oneTimeData.items, oneTimeData.totalCost);
+                onetimeDiv.classList.remove('hidden');
+            }
+            
+            if (paymentType === 'both') {
+                document.getElementById('out-grandTotalValue').textContent = grandTotal.toLocaleString();
+                grandTotalDiv.classList.remove('hidden');
+            }
+            
+            // --- 3. GENERATE THE PDF (if triggered) ---
+            if (isPdfDownload) {
+                const element = document.getElementById('sla-output');
+                const opt = {
+                    margin:       0.5,
+                    filename:     `SLA_${providerName}_${clientName}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true },
+                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(element).save();
+            }
+        }
+        
+        // Add event listeners to all inputs to update preview automatically
+        document.querySelectorAll('input, textarea, select').forEach(input => {
+            input.addEventListener('keyup', () => generateSLA(false)); // for typing
+            input.addEventListener('change', () => generateSLA(false)); // for selects
+        });
+
+        // Run once on page load to fill preview with default values
+        window.onload = () => {
+            togglePaymentSections();
+            generateSLA(false); // false = don't download PDF, just update preview
+        };
+        
+        // Overwrite the button's onclick to use the new function
+        document.querySelector('button').onclick = () => generateSLA(true);
+        
+    </script>
+</body>
+</html>
