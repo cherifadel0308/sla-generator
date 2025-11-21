@@ -3,519 +3,835 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLA Generator (v3)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <title>Client Proposal Generator - Advanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f4f7f6;
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            gap: 30px;
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light background */
+        }
+        .input-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .input-card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
-        h1, h2, h3 { color: #333; }
-        
-        #form-container {
-            background: #fff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        #form-container h2 {
-            margin-top: 0;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
+        /* SVG Chart Styles */
+        .gantt-chart-bar-creation { fill: #8b5cf6; } /* Purple */
+        .gantt-chart-bar-management { fill: #14b8a6; } /* Teal */
+        .gantt-chart-bar-text { font: 11px Inter, sans-serif; fill: #4b5563; dominant-baseline: central; pointer-events: none; font-weight: 600; }
+        .gantt-chart-label { font: 12px Inter, sans-serif; fill: #374151; }
+        .gantt-chart-date-line { stroke: #d1d5db; stroke-dasharray: 2,2; }
+        .gantt-chart-today-line { stroke: #ef4444; stroke-width: 2px; }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-        }
-        input[type="text"], input[type="date"], input[type="number"], textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box; /* Important for padding to work right */
-        }
-        textarea {
-            min-height: 100px;
-            font-family: inherit;
-        }
-        fieldset {
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        legend {
-            font-weight: 600;
-            padding: 0 5px;
-            color: #333;
-        }
+        /* Print styles */
+        @media print {
+            /* FIX: Target only the input elements/columns and hide them */
+            .no-print, .lg\:col-span-2 {
+                display: none !important;
+            }
+            
+            /* Make the proposal output take full print width */
+            #proposal-output {
+                /* Force full column span to eliminate grid layout issues on print */
+                grid-column: 1 / -1 !important; 
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 1cm !important; /* Add margin for paper */
+                box-shadow: none !important;
+                border: none !important;
+                height: auto !important; /* Allow content to flow across pages */
+                position: static !important;
+                background-color: white !important;
+            }
 
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            width: 100%;
+            /* Ensure high contrast for printing */
+            .text-gray-900 { color: #000000 !important; }
+            .text-gray-700 { color: #333333 !important; }
+            
+            /* FORCE SVG STYLES FOR PRINTING */
+            .gantt-chart-bar-creation { fill: #5b21b6 !important; } 
+            .gantt-chart-bar-management { fill: #0d9488 !important; }
+            /* FIX: Ensure all SVG text is black for visibility in PDF */
+            .gantt-chart-bar-text, .gantt-chart-label { 
+                fill: #000000 !important; 
+            }
         }
-        button:hover { background-color: #0056b3; }
-
-        #preview-container {
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 30px;
-            max-height: 90vh;
-            overflow-y: auto;
+        .message-box {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 100;
         }
-
-        /* This is the PDF output style */
-        #sla-output {
-            font-family: Arial, sans-serif;
-            color: #333;
-            max-width: 800px;
-            margin: auto;
-        }
-
-        /* --- NEW HEADER STYLES --- */
-        #sla-header {
-            background: linear-gradient(90deg, #4a90e2, #50e3c2);
-            color: white;
-            padding: 20px 25px; /* Adjusted padding */
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-            display: flex; /* Use flexbox for alignment */
-            justify-content: space-between; /* Pushes items to edges and center */
-            align-items: center; /* Vertically center */
-        }
-        #sla-header h2 {
-            margin: 0;
-            color: white;
-            font-size: 24px;
-        }
-        .sla-logo {
-            max-height: 60px; /* Control logo height */
-            max-width: 180px; /* Control logo width */
-            object-fit: contain;
-        }
-        /* --- END NEW HEADER STYLES --- */
-
-
-        #sla-content {
-            padding: 30px;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 8px 8px;
-            background: #fff;
-        }
-        #sla-content h3 {
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 8px;
-            color: #4a90e2;
-            margin-top: 25px;
-        }
-        #sla-content h4 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        ul, ol {
-            padding-left: 20px;
-        }
-        li {
-            line-height: 1.6;
-        }
-        .payment-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            margin-bottom: 20px;
-        }
-        .payment-table th, .payment-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        .payment-table th {
-            background-color: #f9f9f9;
-        }
-        .payment-table .subtotal-row {
-            font-weight: bold;
-            background-color: #f4f7f6;
-        }
-        .grand-total-row {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e6f7ff;
-            border: 1px solid #b3e0ff;
-            border-radius: 5px;
-            font-size: 1.1em;
-            font-weight: bold;
-            text-align: right;
-        }
-        .hidden {
-            display: none;
-        }
-
     </style>
 </head>
 <body>
 
-    <div id="form-container">
-        <h2>SLA Generator</h2>
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8 p-4 bg-white rounded-xl shadow-xl no-print">
+            <h1 class="text-4xl font-extrabold text-purple-700">Digital Service Proposal Studio</h1>
+            <p class="text-gray-600 mt-2">Configure client details, services, costs, and lead times below to generate a comprehensive proposal.</p>
+        </header>
 
-        <div class="form-group">
-            <label for="providerLogo">Your (Provider) Logo URL</label>
-            <input type="text" id="providerLogo" placeholder="https://your-site.com/logo.png">
-        </div>
-        <div class="form-group">
-            <label for="clientLogo">Customer Logo URL</label>
-            <input type="text" id="clientLogo" placeholder="https://client-site.com/logo.png">
-        </div>
-        <div class="form-group">
-            <label for="providerName">Marketing Provider Name</label>
-            <input type="text" id="providerName" value="Nexus">
-        </div>
-        <div class="form-group">
-            <label for="clientName">Client Name</label>
-            <input type="text" id="clientName" value="Valentina">
-        </div>
-        <div class="form-group">
-            <label for="agreementDate">Agreement Date</label>
-            <input type="text" id="agreementDate" value="3rd April 2025">
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Input Form (no-print) -->
+            <div class="lg:col-span-2 space-y-8 no-print">
 
-        <h3>1. Service Description</h3>
-        <div class="form-group">
-            <label for="serviceList">List of services (one per line)</label>
-            <textarea id="serviceList">Digital marketing (Facebook / Instagram)
-Content creation (photos & Videos)
-Social media management : 15 posts + 3 reels</textarea>
-        </div>
+                <!-- 1. Client and Project Info -->
+                <div class="p-6 input-card rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-900 border-b pb-3 mb-4 text-purple-600">1. Project Configuration</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="customerName" class="block text-sm font-medium text-gray-700">Customer Name</label>
+                            <input type="text" id="customerName" placeholder="Acme Corporation" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2 border" value="Acme Corp">
+                        </div>
+                        <div>
+                            <label for="customerIndustry" class="block text-sm font-medium text-gray-700">Customer Industry</label>
+                            <input type="text" id="customerIndustry" placeholder="Renewable Energy" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2 border" value="B2B Software Development">
+                        </div>
+                        <div>
+                            <label for="currencySelect" class="block text-sm font-medium text-gray-700">Currency</label>
+                            <select id="currencySelect" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2 border bg-white">
+                                <option value="$">USD ($)</option>
+                                <option value="€">EUR (€)</option>
+                                <option value="£">GBP (£)</option>
+                                <option value="₹">INR (₹)</option>
+                                <option value="EGP">EGP (EGP)</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="projectStartDateGlobal"> 
+                    </div>
+                </div>
 
-        <h3>2. Performance Metrics</h3>
-        <div class="form-group">
-            <label for="kpiList">KPIs (format: Name, Target)</label>
-            <textarea id="kpiList">Lead generation target, 50
-Website traffic goal, 100
-Conversion rate, 2%
-Google reviews, 30 reviews</textarea>
-        </div>
+                <!-- 2. Creation Section - DYNAMIC -->
+                <div class="p-6 input-card rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-900 border-b pb-3 mb-4 text-purple-600">2. Initial Setup & Creation Services (One-Time)</h2>
+                    <p class="text-xs text-gray-500 mb-4">Define custom one-time services, their costs, and their specific Start/End dates for the Gantt Chart. **Tip: Copy a column from Excel and paste it into the first input to quickly fill rows.**</p>
+                    <div id="creation-services-container" class="space-y-4">
+                        <!-- Dynamic creation services go here -->
+                    </div>
 
-        <h3>3. Delivery Timelines</h3>
-        <div class="form-group">
-            <label for="startDate">Start Date</label>
-            <input type="text" id="startDate" value="3rd of April 2025">
-        </div>
-        <div class="form-group">
-            <label for="endDate">End Date</label>
-            <input type="text" id="endDate" value="3rd of May 2025">
-        </div>
+                    <button id="addCreationServiceBtn" type="button" class="mt-4 w-full bg-purple-100 text-purple-700 hover:bg-purple-200 font-semibold py-2 px-4 rounded-lg transition duration-150">
+                        + Add Custom Creation Service
+                    </button>
+                </div>
 
-        <h3>4. Roles & Responsibilities</h3>
-        <div class="form-group">
-            <label for="providerRoles">Marketing Provider Roles (one per line)</label>
-            <textarea id="providerRoles">Marketing Strategy for April
-Content creation including (photos/video)
-Ads Management Facebook / Instagram</textarea>
-        </div>
-        <div class="form-group">
-            <label for="clientRoles">Client Roles (one per line)</label>
-            <textarea id="clientRoles">Access on social media and google business manager
-Shooting preparation with his staff and place</textarea>
-        </div>
-        
-        <h3>6. Payment</h3>
-        <div class="form-group">
-            <label for="paymentType">Payment Structure</label>
-            <select id="paymentType" onchange="togglePaymentSections()">
-                <option value="both">Show Both</option>
-                <option value="monthly">Monthly Only</option>
-                <option value="onetime">One-Time Only</option>
-            </select>
-        </div>
-        
-        <fieldset id="monthly-payment-form">
-            <legend>Monthly Payments</legend>
-            <div class="form-group">
-                <label for="paymentDay">Payment Day of Month</label>
-                <input type="text" id="paymentDay" value="3rd">
+                <!-- 3. Management Section - DYNAMIC -->
+                <div class="p-6 input-card rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-900 border-b pb-3 mb-4 text-teal-600">3. Management & Ongoing Services (Monthly)</h2>
+                    <p class="text-xs text-gray-500 mb-4">Add ongoing services and their monthly costs. **Tip: Copy a column from Excel and paste it into the first input to quickly fill rows.**</p>
+                    
+                    <div id="management-services-container" class="space-y-4">
+                        <!-- Dynamic management services go here -->
+                    </div>
+
+                    <button id="addManagementServiceBtn" type="button" class="mt-4 w-full bg-teal-100 text-teal-700 hover:bg-teal-200 font-semibold py-2 px-4 rounded-lg transition duration-150">
+                        + Add Custom Management Service
+                    </button>
+                </div>
+
+                <!-- 4. Extra Content Section -->
+                <div class="p-6 input-card rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-900 border-b pb-3 mb-4 text-purple-600">5. Optional Services & Addenda</h2>
+                    <p class="text-xs text-gray-500 mb-4">Use this space for extra proposal text, scope notes, or future/optional services.</p>
+                    <textarea id="extraContent" rows="6" placeholder="Example: Optional Service: UX/UI Audit (One-time cost: 4,000 EGP).&#10;&#10;Contractual Notes: All deliverables are subject to the client-side approval within 7 days." class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2 border update-preview"></textarea>
+                </div>
+
+                <!-- LLM Action Button -->
+                <button id="generateSummaryBtn" onclick="generateProposalSummary()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl shadow-xl transition duration-150 transform hover:scale-[1.01] flex items-center justify-center space-x-2">
+                    <span>✨ Generate Executive Summary & Insights</span>
+                    <span id="summaryLoading" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                </button>
+
+                <!-- Action Button -->
+                <button onclick="generateProposalAndPrint()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl shadow-xl transition duration-150 transform hover:scale-[1.01]">
+                    Generate Proposal for Print/PDF
+                </button>
+                <div id="printMessage" class="hidden p-3 mt-4 text-sm font-semibold rounded-lg text-center bg-green-100 text-green-700"></div>
             </div>
-            <div class="form-group">
-                <label for="monthlyPaymentItems">Monthly Items (format: Item, Cost)</label>
-                <textarea id="monthlyPaymentItems">Marketing fees, 45000
-Ads cost, 35000</textarea>
-            </div>
-        </fieldset>
 
-        <fieldset id="onetime-payment-form">
-            <legend>One-Time Payments</legend>
-            <div class="form-group">
-                <label for="oneTimePaymentItems">One-Time Items (format: Item, Cost)</label>
-                <textarea id="oneTimePaymentItems">Booking System Setup, 15000
-QR Code System Integration, 5000</textarea>
+            <!-- Right Column: Proposal Output Preview -->
+            <div id="proposal-output" class="lg:col-span-1 p-6 bg-white rounded-xl shadow-2xl h-fit border-4 border-purple-200">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4 text-purple-600">Draft Proposal Preview</h2>
+                <div id="proposal-content" class="text-gray-700 text-sm">
+                    <p class="text-center italic text-gray-500 py-12">Configure the project details on the left to see the generated proposal.</p>
+                </div>
             </div>
-        </fieldset>
-        
-        <button onclick="generateSLA()">Generate & Download PDF</button>
+        </div>
     </div>
 
-    <div id="preview-container">
-        <h2>Live Preview</h2>
-        <div id="sla-output">
-            <div id="sla-header">
-                <img id="out-providerLogo" src="" alt="Provider Logo" class="sla-logo hidden">
-                <h2>MARKETING SERVICE LEVEL AGREEMENT (SLA)</h2>
-                <img id="out-clientLogo" src="" alt="Client Logo" class="sla-logo hidden">
-            </div>
-            <div id="sla-content">
-                <p>This Agreement is made on <strong id="out-agreementDate">...</strong>, between <strong id="out-providerName">...</strong>, hereinafter referred to as "Marketing Provider," and <strong id="out-clientName">...</strong>, hereinafter referred to as "Client."</p>
-                <hr>
-
-                <h3>1. Service description:</h3>
-                <ul id="out-serviceList"></ul>
-                <h3>2. Performance metrics and standards:</h3>
-                <ul id="out-kpiList"></ul>
-                <h3>3. Delivery timelines:</h3>
-                <ul><li>From <strong id="out-startDate">...</strong> to <strong id="out-endDate">...</strong></li></ul>
-                <h3>4. Roles and responsibilities:</h3>
-                <strong>Marketing provider:</strong>
-                <ul id="out-providerRoles"></ul>
-                <strong>Client:</strong>
-                <ul id="out-clientRoles"></ul>
-
-                <h3>6. Payment:</h3>
-                <div id="out-monthly-payment" class="hidden">
-                    <h4>Monthly Fees</h4>
-                    <p>Payment date is on the <strong id="out-paymentDay">...</strong> of each month.</p>
-                    <table class="payment-table">
-                        <thead><tr><th>Service / Item</th><th>Cost (EGP)</th></tr></thead>
-                        <tbody id="out-monthlyPaymentItems"></tbody>
-                        <tfoot><tr class="subtotal-row">
-                            <td><strong>Monthly Total</strong></td>
-                            <td><strong id="out-monthlyTotal">...</strong> EGP</td>
-                        </tr></tfoot>
-                    </table>
-                </div>
-                <div id="out-onetime-payment" class="hidden">
-                    <h4>One-Time Fees</h4>
-                    <table class="payment-table">
-                        <thead><tr><th>Service / Item</th><th>Cost (EGP)</th></tr></thead>
-                        <tbody id="out-oneTimePaymentItems"></tbody>
-                        <tfoot><tr class="subtotal-row">
-                            <td><strong>One-Time Total</strong></td>
-                            <td><strong id="out-oneTimeTotal">...</strong> EGP</td>
-                        </tr></tfoot>
-                    </table>
-                </div>
-                <div id="out-grand-total" class="grand-total-row hidden">
-                    <strong>Grand Total:</strong> <span id="out-grandTotalValue">...</span> EGP
-                </div>
-                </div>
-        </div>
-    </div>
+    <div id="messageBox" class="message-box hidden p-4 bg-red-600 text-white rounded-lg shadow-xl font-bold"></div>
 
     <script>
-        // Helper function to show/hide form sections
-        function togglePaymentSections() {
-            const paymentType = document.getElementById('paymentType').value;
-            const monthlyForm = document.getElementById('monthly-payment-form');
-            const onetimeForm = document.getElementById('onetime-payment-form');
+        // --- CONFIGURATION ---
+        const API_KEY = ""; 
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=" + API_KEY;
 
-            if (paymentType === 'monthly') {
-                monthlyForm.style.display = 'block';
-                onetimeForm.style.display = 'none';
-            } else if (paymentType === 'onetime') {
-                monthlyForm.style.display = 'none';
-                onetimeForm.style.display = 'block';
-            } else { // 'both'
-                monthlyForm.style.display = 'block';
-                onetimeForm.style.display = 'block';
-            }
+        let creationServiceCounter = 0;
+        let managementServiceCounter = 0;
+
+        // --- UTILITY FUNCTIONS ---
+
+        function showMessage(text, isError = false) {
+            const box = document.getElementById('messageBox');
+            box.textContent = text;
+            box.className = 'message-box p-4 rounded-lg shadow-xl font-bold transition-opacity duration-300';
+            box.classList.add(isError ? 'bg-red-600' : 'bg-green-600');
+            box.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 5000);
+        }
+
+        function createLocalTimeDate(dateString) {
+            if (!dateString) return null;
+            const parts = dateString.split('-').map(Number);
+            // Fix: Use the standard YYYY, MM, DD constructor for consistent local date creation
+            return new Date(parts[0], parts[1] - 1, parts[2]); 
+        }
+
+        function formatCurrency(amount, currencySymbol) {
+            return `${currencySymbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
         }
         
-        // Helper function to parse item lists (format: "Item, Cost")
-        function parsePaymentItems(textareaId) {
-            const itemsInput = document.getElementById(textareaId).value.split('\n');
-            let totalCost = 0;
-            const items = itemsInput
-                .filter(line => line.trim() !== '') // Ignore empty lines
-                .map(item => {
-                    const parts = item.split(',');
-                    const name = parts[0] ? parts[0].trim() : '';
-                    const cost = parseFloat(parts[1] ? parts[1].trim() : 0);
-                    if (!isNaN(cost)) {
-                        totalCost += cost;
+        // --- DYNAMIC SERVICE HELPERS ---
+        // Placing these globally accessible functions here (outside of window.onload) to prevent ReferenceError.
+
+        function removeElement(id) {
+            document.getElementById(id)?.remove();
+            updateProposalPreview();
+        }
+
+        function attachListeners(element) {
+            const inputs = element.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('input', updateProposalPreview);
+                input.addEventListener('change', updateProposalPreview);
+                
+                // Attach paste listeners only for service inputs
+                const fullId = element.id;
+                
+                if (fullId && fullId.startsWith('creation_service_')) {
+                    if (input.dataset.nameId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'name'));
+                    } else if (input.dataset.costId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'cost'));
+                    } else if (input.dataset.startDateId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'start'));
+                    } else if (input.dataset.endDateId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'end'));
                     }
-                    return { name, cost: cost.toLocaleString() }; // Format cost with commas
-                });
-            return { items, totalCost };
-        }
-        
-        // Helper function to populate a payment table in the preview
-        function populatePaymentTable(tbodyId, tfootId, tfootTotalId, items, total) {
-            const tbody = document.getElementById(tbodyId);
-            tbody.innerHTML = ''; // Clear old items
-            items.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${item.name}</td><td>${item.cost} EGP</td>`;
-                tbody.appendChild(tr);
+                } else if (fullId && fullId.startsWith('mgmt_service_')) {
+                    if (input.dataset.nameId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'name'));
+                    } else if (input.dataset.costId) {
+                        input.addEventListener('paste', (e) => handlePaste(e, 'cost'));
+                    }
+                }
             });
-            document.getElementById(tfootTotalId).textContent = total.toLocaleString();
+            // Attach listener for the new extra content textarea
+            document.getElementById('extraContent')?.addEventListener('input', updateProposalPreview);
         }
 
-        // --- NEW Helper function to handle logo display ---
-        function updateLogo(elementId, url) {
-            const logoEl = document.getElementById(elementId);
-            if (url) {
-                logoEl.src = url;
-                logoEl.classList.remove('hidden');
+        // 1. Creation Services
+        function addCreationService(initialData = { name: '', cost: 0, startDate: '', endDate: '', isVariable: false }) {
+            const container = document.getElementById('creation-services-container');
+            const uniqueId = `creation_service_${creationServiceCounter++}`;
+            
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Calculate default end date based on today + 30 days
+            const defaultEndDate = new Date(createLocalTimeDate(today));
+            defaultEndDate.setDate(defaultEndDate.getDate() + 30);
+            const defaultEndDateStr = defaultEndDate.toISOString().split('T')[0];
+
+            const newServiceHtml = `
+                <div id="${uniqueId}" class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 rounded-lg border border-purple-300 bg-purple-100">
+                    <div class="flex-grow w-full sm:w-1/5 mb-2 sm:mb-0 sm:mr-4">
+                        <input type="text" data-name-id="name_${uniqueId}" value="${initialData.name}" placeholder="Service Name" class="w-full rounded-md border-gray-300 p-1.5 border focus:border-purple-500 focus:ring-purple-500 update-preview">
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-4/5">
+                        <input type="number" data-cost-id="cost_${uniqueId}" value="${initialData.cost}" min="0" placeholder="Cost" class="w-full sm:w-[25%] rounded-md border-gray-300 p-1.5 border text-right focus:border-purple-500 focus:ring-purple-500 update-preview">
+                        <input type="date" data-start-date-id="start_${uniqueId}" value="${initialData.startDate || today}" class="w-full sm:w-[25%] rounded-md border-gray-300 p-1.5 border focus:border-purple-500 focus:ring-purple-500 update-preview">
+                        <input type="date" data-end-date-id="end_${uniqueId}" value="${initialData.endDate || defaultEndDateStr}" class="w-full sm:w-[25%] rounded-md border-gray-300 p-1.5 border focus:border-purple-500 focus:ring-purple-500 update-preview">
+                        <div class="flex items-center justify-center w-full sm:w-[15%]">
+                            <input type="checkbox" id="variable_${uniqueId}" data-variable-id="variable_${uniqueId}" class="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 update-preview" ${initialData.isVariable ? 'checked' : ''}>
+                            <label for="variable_${uniqueId}" class="ml-1 text-xs text-gray-700">Variable</label>
+                        </div>
+                        <button type="button" onclick="removeElement('${uniqueId}')" class="w-full sm:w-[10%] bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-150 text-sm py-1.5">X</button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', newServiceHtml);
+            attachListeners(container.lastElementChild);
+        }
+
+        // 2. Management Services
+        function addManagementService(initialData = { name: '', cost: 0, isVariable: false }) {
+            const container = document.getElementById('management-services-container');
+            const uniqueId = `mgmt_service_${managementServiceCounter++}`;
+
+            const newServiceHtml = `
+                <div id="${uniqueId}" class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 rounded-lg border border-teal-300 bg-teal-50">
+                    <div class="flex-grow w-full sm:w-1/2 mb-2 sm:mb-0 sm:mr-4">
+                        <input type="text" data-name-id="name_${uniqueId}" placeholder="Service Name (e.g. Media Buying)" class="w-full rounded-md border-gray-300 p-1.5 border focus:border-teal-500 focus:ring-teal-500 update-preview" value="${initialData.name}">
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-1/2">
+                        <input type="number" data-cost-id="cost_${uniqueId}" value="${initialData.cost}" min="0" placeholder="Monthly Cost" class="w-full rounded-md border-gray-300 p-1.5 border text-right focus:border-teal-500 focus:ring-teal-500 update-preview">
+                        <div class="flex items-center justify-center space-x-1 p-1.5 border rounded-md bg-white">
+                            <input type="checkbox" id="variable_${uniqueId}" data-variable-id="variable_${uniqueId}" class="h-4 w-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500 update-preview" ${initialData.isVariable ? 'checked' : ''}>
+                            <label for="variable_${uniqueId}" class="ml-1 text-xs text-gray-700">Variable</label>
+                        </div>
+                        <button type="button" onclick="removeElement('${uniqueId}')" class="w-12 bg-red-500 text-white rounded-md hover:bg-red-600 transition duration-150 text-sm font-bold">X</button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', newServiceHtml);
+            attachListeners(container.lastElementChild);
+        }
+        
+        // Function to handle paste event for a specific column type (name, cost, start, end)
+        function handlePaste(event, inputType) {
+            // Stop default behavior to handle data manually
+            event.preventDefault();
+
+            const pastedText = (event.clipboardData || window.clipboardData).getData('text');
+            // Split by newline characters to get one line per item
+            const lines = pastedText.trim().split(/[\n\r]+/); 
+
+            if (lines.length === 0 || !lines[0].trim()) return;
+
+            // Determine service type and setup based on the input that triggered the event
+            const targetInput = event.target;
+            const parentDiv = targetInput.closest('[id^="creation_service_"], [id^="mgmt_service_"]');
+            
+            if (!parentDiv) return;
+
+            const serviceType = parentDiv.id.startsWith('creation') ? 'creation' : 'management';
+            
+            const dataAttrPrefix = {
+                name: 'data-name-id',
+                cost: 'data-cost-id',
+                start: 'data-start-date-id',
+                end: 'data-end-date-id'
+            };
+
+            let allInputsOfType = Array.from(document.querySelectorAll(`#${serviceType}-services-container input[${dataAttrPrefix[inputType]}]`));
+            
+            let startIndex = allInputsOfType.findIndex(input => input === targetInput);
+            
+            if (startIndex === -1) return; 
+
+            let currentIndex = startIndex;
+            const serviceAdder = serviceType === 'creation' ? addCreationService : addManagementService;
+            
+            lines.forEach((value, i) => {
+                value = value.trim();
+                if (!value) return;
+
+                // Check if we need to add a new service row
+                if (currentIndex >= allInputsOfType.length) {
+                    // Create a new row
+                    serviceAdder({ name: '', cost: 0, startDate: '', endDate: '' });
+                    
+                    // Re-fetch all inputs of the current type, including the new one
+                    allInputsOfType = Array.from(document.querySelectorAll(`#${serviceType}-services-container input[${dataAttrPrefix[inputType]}]`));
+                }
+
+                const currentInput = allInputsOfType[currentIndex];
+
+                if (currentInput) {
+                    // Apply value with type-specific validation
+                    if (inputType === 'cost') {
+                        // Remove non-numeric characters (except dot)
+                        const num = parseFloat(value.replace(/[^0-9.]/g, ''));
+                        currentInput.value = isNaN(num) ? '' : num;
+                    } else if (serviceType === 'creation' && (inputType === 'start' || inputType === 'end')) {
+                        // Attempt to normalize date format for HTML input[type=date] (YYYY-MM-DD)
+                        let dateValue = value;
+                        // Check for common DD/MM/YYYY or DD-MM-YYYY formats (based on en-GB locale)
+                        if (dateValue.includes('/') || dateValue.includes('-')) {
+                            const separator = dateValue.includes('/') ? '/' : '-';
+                            const parts = dateValue.split(separator);
+                            if (parts.length === 3) {
+                                // Assuming DD/MM/YYYY or DD-MM-YYYY
+                                dateValue = `${parts[2].trim()}-${parts[1].trim().padStart(2, '0')}-${parts[0].trim().padStart(2, '0')}`;
+                            }
+                        }
+                        
+                        // Set value only if it matches YYYY-MM-DD format, otherwise let the browser handle it (usually fails)
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                            currentInput.value = dateValue;
+                        } else {
+                            currentInput.value = ''; // Clear invalid date to prevent submission errors
+                        }
+                    } else {
+                        // Text input (Name)
+                        currentInput.value = value;
+                    }
+                    
+                    currentIndex++;
+                }
+            });
+
+            // Trigger update to refresh preview and calculations after paste operation
+            updateProposalPreview();
+        }
+
+
+        // --- GEMINI API HELPERS (with exponential backoff) ---
+
+        async function retryFetch(url, payload, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        return await response.json();
+                    } else if (response.status === 429 && i < retries - 1) { // Rate limit
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    } else {
+                        throw new Error(`API call failed with status: ${response.status}`);
+                    }
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                }
+            }
+        }
+
+        // --- DYNAMIC SERVICE DATA RETRIEVAL ---
+
+        function getDynamicServices(containerId, type) {
+            const container = document.getElementById(containerId);
+            // Ensure the container exists before querying its children
+            if (!container) return []; 
+            
+            const serviceElements = container.querySelectorAll(':scope > div');
+            const services = [];
+
+            serviceElements.forEach(el => {
+                const fullId = el.id;
+                // Use attribute selectors based on the data-* attributes to ensure correct targeting
+                const nameInput = el.querySelector(`input[data-name-id="name_${fullId}"]`);
+                const costInput = el.querySelector(`input[data-cost-id="cost_${fullId}"]`);
+                const variableInput = el.querySelector(`input[data-variable-id="variable_${fullId}"]`); 
+
+                // Ensure inputs exist before trying to read properties
+                const name = nameInput?.value.trim() || 'Service';
+                const cost = parseFloat(costInput?.value) || 0;
+                const isVariable = variableInput?.checked || false; 
+
+                if (type === 'creation') {
+                    const startDateInput = el.querySelector(`input[data-start-date-id="start_${fullId}"]`);
+                    const endDateInput = el.querySelector(`input[data-end-date-id="end_${fullId}"]`);
+                    
+                    const startValue = startDateInput?.value;
+                    const endValue = endDateInput?.value;
+
+                    const start = createLocalTimeDate(startValue);
+                    const end = createLocalTimeDate(endValue);
+                    
+                    // Only include the service if it has cost and valid dates
+                    if (cost > 0 && startValue && endValue) {
+                        // Re-validate date order (Start < End) using Date objects
+                        if (start && end && start.getTime() < end.getTime()) {
+                             // Duration must be at least 1 day.
+                             const durationDays = Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1; 
+                             services.push({ name, cost, startDate: start, endDate: end, duration: durationDays, isVariable });
+                        } else {
+                            // Log invalid date range for debugging only
+                            console.error(`Invalid Date Range for: ${name}. Start date must be before end date.`);
+                        }
+                    }
+                } else {
+                    // Management
+                    if (cost > 0) {
+                        services.push({ name, cost, isVariable }); 
+                    }
+                }
+            });
+            return services;
+        }
+
+        // --- GANTT CHART GENERATION (SVG) ---
+        function generateGanttChartSVG(creationServices) {
+            if (creationServices.length === 0) return '<p class="text-sm italic text-center text-gray-500 pt-4">No creation services with dates provided to generate the timeline chart.</p>';
+
+            const barHeight = 20;
+            const barSpacing = 10;
+            const marginX = 10;
+            const marginY = 10;
+            const labelWidth = 150; 
+            const chartWidth = 550; 
+            const totalWidth = labelWidth + chartWidth + (2 * marginX) + 50; // Added width for text on right
+            const totalHeight = (creationServices.length * (barHeight + barSpacing)) + 50; 
+            
+            const allDates = creationServices.flatMap(s => [s.startDate.getTime(), s.endDate.getTime()]);
+            const earliestStart = new Date(Math.min(...allDates));
+            const latestEnd = new Date(Math.max(...allDates));
+            const earliestStartLocal = createLocalTimeDate(earliestStart.toISOString().split('T')[0]);
+
+            const totalDurationDays = Math.ceil((latestEnd.getTime() - earliestStartLocal.getTime()) / (24 * 60 * 60 * 1000));
+            const totalDaysForScale = Math.max(30, totalDurationDays + 5); 
+            const scaleFactor = totalDaysForScale > 0 ? chartWidth / totalDaysForScale : 0;
+
+            let svgContent = `<svg width="100%" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg" class="w-full">`;
+            
+            creationServices.forEach((service, index) => {
+                const y = marginY + (index * (barHeight + barSpacing)) + (barHeight / 2);
+                svgContent += `<text x="${marginX + labelWidth - 5}" y="${y}" text-anchor="end" class="gantt-chart-label" dominant-baseline="middle">${service.name}</text>`;
+            });
+
+            const chartStartX = marginX + labelWidth;
+
+            creationServices.forEach((service, index) => {
+                const y = marginY + (index * (barHeight + barSpacing));
+                const daysOffset = Math.ceil((service.startDate.getTime() - earliestStartLocal.getTime()) / (24 * 60 * 60 * 1000));
+                const daysDuration = service.duration; 
+                const xStart = chartStartX + (daysOffset * scaleFactor);
+                const barLength = daysDuration * scaleFactor;
+                
+                svgContent += `<rect x="${xStart}" y="${y}" width="${barLength}" height="${barHeight}" rx="4" ry="4" class="gantt-chart-bar-creation shadow-md" />`;
+
+                // Text always on the right now
+                svgContent += `<text x="${xStart + barLength + 5}" y="${y + (barHeight / 2)}" class="gantt-chart-bar-text" text-anchor="start">${daysDuration} Days</text>`;
+            });
+
+            const daysPerMarker = 30;
+            const numMarkers = Math.ceil(totalDaysForScale / daysPerMarker);
+            
+            for (let i = 0; i <= numMarkers; i++) {
+                const markerDays = i * daysPerMarker;
+                if (markerDays > totalDaysForScale * 1.05) continue;
+                
+                const markerX = chartStartX + (markerDays * scaleFactor);
+                const markerDate = new Date(earliestStartLocal);
+                markerDate.setDate(markerDate.getDate() + markerDays);
+                const dateLabel = markerDate.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }); 
+
+                if (markerX > chartStartX) {
+                     svgContent += `<line x1="${markerX}" y1="${marginY + (barHeight + barSpacing) * creationServices.length}" x2="${markerX}" y2="${totalHeight - 20}" class="gantt-chart-date-line" />`;
+                }
+                svgContent += `<text x="${markerX}" y="${totalHeight - 5}" text-anchor="middle" class="gantt-chart-label">${dateLabel}</text>`;
+            }
+            
+            // Today Marker
+            const today = new Date();
+            const todayLocal = createLocalTimeDate(today.toISOString().split('T')[0]);
+            const todayDaysOffset = Math.ceil((todayLocal.getTime() - earliestStartLocal.getTime()) / (24 * 60 * 60 * 1000));
+            const todayX = chartStartX + (todayDaysOffset * scaleFactor);
+
+            if (todayX > chartStartX && todayX < chartStartX + chartWidth) {
+                 svgContent += `<line x1="${todayX}" y1="0" x2="${todayX}" y2="${totalHeight - 20}" class="gantt-chart-today-line" />`;
+                 svgContent += `<text x="${todayX}" y="10" text-anchor="middle" class="gantt-chart-label" fill="#ef4444">Today</text>`;
+            }
+
+            svgContent += '</svg>';
+            return svgContent;
+        }
+
+        // --- LLM ACTION BUTTON HANDLER ---
+        async function generateProposalSummary() {
+            const btn = document.getElementById('generateSummaryBtn');
+            const loading = document.getElementById('summaryLoading');
+            const summaryContentDiv = document.getElementById('llm-summary-content');
+            const summarySection = document.getElementById('llm-summary-section');
+            
+            const customerName = document.getElementById('customerName')?.value.trim();
+            const customerIndustry = document.getElementById('customerIndustry')?.value.trim();
+            
+            if (!customerIndustry || !customerName) {
+                showMessage("Please fill in the Customer Name and Industry before generating the summary.", true);
+                return;
+            }
+
+            btn.disabled = true;
+            loading.classList.remove('hidden');
+            // Ensure the summary section is visible when generation starts
+            if (summarySection) summarySection.classList.remove('hidden'); 
+            if (summaryContentDiv) summaryContentDiv.innerHTML = '<p class="text-center text-sm italic text-gray-500">Generating insights and summary... this may take a moment.</p>';
+
+            const currencySymbol = document.getElementById('currencySelect')?.value;
+            const creationServices = getDynamicServices('creation-services-container', 'creation');
+            const managementServices = getDynamicServices('management-services-container', 'management');
+
+            const creationText = creationServices.map(s => `${s.name} (${formatCurrency(s.cost, currencySymbol)}${s.isVariable ? ' - Estimate' : ''})`).join('; ');
+            const managementText = managementServices.map(s => `${s.name} (${formatCurrency(s.cost, currencySymbol)}/mo${s.isVariable ? ' - Estimate' : ''})`).join('; ');
+
+            const totalCreationCost = creationServices.reduce((sum, s) => sum + s.cost, 0);
+            const totalManagementCost = managementServices.reduce((sum, s) => sum + s.cost, 0);
+
+            const prompt = `
+                Draft a professional, compelling proposal summary for a client in the ${customerIndustry} sector named ${customerName}.
+                The proposal includes:
+                1. Initial Setup/Creation Services (Total One-Time: ${formatCurrency(totalCreationCost, currencySymbol)}): ${creationText}
+                2. Ongoing Management Services (Total Monthly: ${formatCurrency(totalManagementCost, currencySymbol)}): ${managementText}
+
+                The final output must be exactly two distinct paragraphs:
+                Paragraph 1: An "Executive Summary" that acts as a persuasive opening statement, highlighting the client's industry challenge and how the proposed services deliver a solution and clear ROI.
+                Paragraph 2: An "Industry Insight" paragraph that uses current market data and trends to justify the proposed digital strategy. Use Google Search grounding for this paragraph.
+            `;
+            const systemPrompt = "You are a world-class digital strategy consultant. Your tone is confident and professional. Output must strictly follow the format: two distinct paragraphs.";
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const result = await retryFetch(API_URL, payload);
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    let text = candidate.content.parts[0].text;
+                    text = text.trim().replace(/\n\s*\n/g, '<p class="mt-4 mb-2 font-bold text-teal-700">Industry Insight:</p>');
+                    text = `<p class="mt-0 mb-2 font-bold text-purple-700">Executive Summary:</p><p class="mb-4">${text}</p>`;
+                                        
+                    let sourcesHtml = '';
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        const sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({ uri: attribution.web?.uri, title: attribution.web?.title }))
+                            .filter(source => source.uri && source.title)
+                            .slice(0, 3); 
+                        if (sources.length > 0) {
+                            sourcesHtml = '<div class="mt-4 pt-2 border-t border-gray-200"><p class="text-xs font-semibold text-gray-500">Sources for Insights:</p><ul class="list-disc list-inside text-xs text-gray-600 space-y-0.5">';
+                            sources.forEach(s => {
+                                sourcesHtml += `<li><a href="${s.uri}" target="_blank" class="text-blue-600 hover:underline">${s.title}</a></li>`;
+                            });
+                            sourcesHtml += '</ul></div>';
+                        }
+                    }
+                    if (summaryContentDiv) summaryContentDiv.innerHTML = text + sourcesHtml;
+                } else {
+                    if (summaryContentDiv) summaryContentDiv.innerHTML = '<p class="text-center text-sm italic text-red-500">Error: Could not generate summary. Please check your inputs.</p>';
+                }
+
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                if (summaryContentDiv) summaryContentDiv.innerHTML = '<p class="text-center text-sm italic text-red-500">Failed to connect to the AI service. Please try again later.</p>';
+            } finally {
+                btn.disabled = false;
+                loading.classList.add('hidden');
+                updateProposalPreview(); 
+            }
+        }
+
+
+        // --- MAIN PROPOSAL GENERATION FUNCTION ---
+
+        function updateProposalPreview() {
+            const customerName = document.getElementById('customerName')?.value.trim() || '[Client Name]';
+            const customerIndustry = document.getElementById('customerIndustry')?.value.trim() || '[Industry]';
+            const currencySymbol = document.getElementById('currencySelect')?.value;
+            const extraContent = document.getElementById('extraContent')?.value.trim();
+            
+            const options = { year: 'numeric', month: 'numeric', day: 'numeric' };
+
+            const creationServices = getDynamicServices('creation-services-container', 'creation');
+            const managementServices = getDynamicServices('management-services-container', 'management');
+
+            const totalCreationCost = creationServices.reduce((sum, s) => sum + s.cost, 0);
+            const totalManagementCost = managementServices.reduce((sum, s) => sum + s.cost, 0);
+
+            creationServices.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+            let timelineChartHtml = '';
+            if (creationServices.length > 0) {
+                timelineChartHtml = `
+                    <h4 class="text-xl font-semibold text-gray-900 mt-6 mb-3 border-b pb-2">4. Project Implementation Roadmap</h4>
+                    ${generateGanttChartSVG(creationServices)}
+                `;
             } else {
-                logoEl.src = '';
-                logoEl.classList.add('hidden');
+                 timelineChartHtml = `
+                    <h4 class="text-xl font-semibold text-gray-900 mt-6 mb-3 border-b pb-2">4. Project Implementation Roadmap</h4>
+                    <p class="text-sm italic text-gray-500 text-center">Please define creation services with valid dates (Start &lt; End) to generate the timeline chart.</p>
+                `;
             }
+
+            let extraContentHtml = '';
+            if (extraContent) {
+                // Replace newlines with paragraph breaks for cleaner display in PDF
+                const formattedContent = extraContent.split('\n').map(line => `<p class="mb-2">${line}</p>`).join('');
+                extraContentHtml = `
+                    <section class="p-4 rounded-lg bg-gray-50 border border-gray-300 shadow-sm">
+                        <h4 class="text-xl font-semibold text-purple-600 mb-3">5. Optional Services & Addenda</h4>
+                        <div class="text-sm space-y-2">${formattedContent}</div>
+                    </section>
+                `;
+            }
+
+
+            const llmSummaryContent = document.getElementById('llm-summary-content')?.innerHTML || '<p class="text-center italic text-gray-500">Click "✨ Generate Executive Summary & Insights" above to populate this section.</p>';
+            const summarySectionElement = document.getElementById('llm-summary-section');
+            const summarySectionHiddenClass = summarySectionElement ? summarySectionElement.classList.contains('hidden') : true;
+
+            const summarySectionHtml = !summarySectionHiddenClass ? 
+                summarySectionElement.outerHTML.replace('hidden', '') :
+                `<section id="llm-summary-section" class="p-4 mt-6 rounded-lg bg-gray-50 border border-gray-300 shadow-sm hidden">
+                    <h4 class="text-xl font-semibold text-purple-600 mb-2 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-teal-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-5-8a1 1 0 011-1h6a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                        Executive Summary & Industry Insights
+                    </h4>
+                    <div id="llm-summary-content" class="text-sm space-y-3">${llmSummaryContent}</div>
+                </section>`;
+
+            let htmlContent = `
+                <div class="space-y-6 text-gray-800">
+                    <div class="border-b-4 border-purple-500 pb-4">
+                        <h3 class="text-3xl font-extrabold text-purple-700">${customerName} Proposal</h3>
+                        <p class="text-lg text-gray-600 mt-1">Strategic Services for the <span class="font-semibold text-teal-600">${customerIndustry}</span> Industry</p>
+                        <p class="text-xs text-gray-400 mt-2">Generated on: ${new Date().toLocaleDateString('en-GB', options)} | Currency: ${currencySymbol}</p>
+                    </div>
+
+                    ${summarySectionHtml}
+
+                    <!-- 1. Creation Services -->
+                    <section class="p-4 rounded-lg bg-purple-50/50 border border-purple-200 shadow-sm">
+                        <h4 class="text-xl font-semibold text-purple-600 mb-3">2. Initial Setup & Creation Services (One-Time)</h4>
+                        ${creationServices.length > 0 ? `
+                            <ul class="space-y-2">
+                                ${creationServices.map(s => `
+                                    <li class="flex justify-between text-sm py-1 border-b border-purple-100 last:border-b-0">
+                                        <span>${s.name}</span>
+                                        <div class="text-right"> <!-- Price Container -->
+                                            <span class="font-bold text-gray-900">${formatCurrency(s.cost, currencySymbol)}</span>
+                                            ${s.isVariable ? 
+                                                '<div class="text-red-500 font-normal text-xs leading-none">(Price May Vary)</div>' : 
+                                                '<div class="text-xs leading-none invisible">.</div>'} <!-- Invisible Spacer -->
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <div class="pt-3 flex justify-between font-bold text-lg border-t mt-4 border-purple-300">
+                                <span>TOTAL ONE-TIME COST:</span>
+                                <span class="text-purple-700">${formatCurrency(totalCreationCost, currencySymbol)}</span>
+                            </div>
+                        ` : `
+                            <p class="text-sm italic text-gray-500">No creation services selected or costs set.</p>
+                        `}
+                    </section>
+
+                    <!-- 2. Management Services -->
+                    <section class="p-4 rounded-lg bg-teal-50/50 border border-teal-200 shadow-sm">
+                        <h4 class="text-xl font-semibold text-teal-600 mb-3">3. Ongoing Management Services (Monthly Retainer)</h4>
+                        ${managementServices.length > 0 ? `
+                            <ul class="space-y-2">
+                                ${managementServices.map(s => `
+                                    <li class="flex justify-between text-sm py-1 border-b border-teal-100 last:border-b-0">
+                                        <span>${s.name}</span>
+                                        <div class="text-right"> <!-- Price Container -->
+                                            <span class="font-bold text-gray-900">${formatCurrency(s.cost, currencySymbol)}</span>
+                                            ${s.isVariable ? 
+                                                '<div class="text-red-500 font-normal text-xs leading-none">(Price May Vary)</div>' : 
+                                                '<div class="text-xs leading-none invisible">.</div>'} <!-- Invisible Spacer -->
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <div class="pt-3 flex justify-between font-bold text-lg border-t mt-4 border-teal-300">
+                                <span>TOTAL MONTHLY RETAINER:</span>
+                                <span class="text-teal-700">${formatCurrency(totalManagementCost, currencySymbol)} / mo</span>
+                            </div>
+                        ` : `
+                            <p class="text-sm italic text-gray-500">No ongoing management services selected or costs set.</p>
+                        `}
+                    </section>
+
+                    ${timelineChartHtml}
+
+                    ${extraContentHtml} <!-- NEW SECTION HERE -->
+
+                    <section class="p-4 bg-purple-700 rounded-lg text-white shadow-xl">
+                        <h4 class="text-2xl font-bold mb-2">Total Estimated Investment Summary</h4>
+                        <p class="text-lg">One-Time Setup: <span class="font-extrabold text-yellow-300">${formatCurrency(totalCreationCost, currencySymbol)}</span></p>
+                        <p class="text-lg">Monthly Retainer: <span class="font-extrabold text-yellow-300">${formatCurrency(totalManagementCost, currencySymbol)} / month</span></p>
+                    </section>
+
+                    <p class="text-xs text-gray-500 pt-4">Note: This proposal is valid for 30 days. Prices exclude taxes and media spend.</p>
+                </div>
+            `;
+
+            if (totalCreationCost === 0 && totalManagementCost === 0 && !summarySectionHiddenClass && !summarySectionElement.querySelector('#llm-summary-content').innerHTML.includes('Executive Summary')) {
+                htmlContent = '<p class="text-center italic text-gray-500 py-12">Configure the project details on the left to see the generated proposal.</p>';
+            }
+
+            document.getElementById('proposal-content').innerHTML = htmlContent;
         }
 
-        // Main function to update preview and generate PDF
-        function generateSLA(isPdfDownload = false) {
-            // --- 1. GET ALL VARIABLES FROM THE FORM ---
-            
-            // --- NEW Logo URLs ---
-            const providerLogoUrl = document.getElementById('providerLogo').value;
-            const clientLogoUrl = document.getElementById('clientLogo').value;
+        function generateProposalAndPrint() {
+            updateProposalPreview();
+            setTimeout(() => {
+                try {
+                    window.print();
+                    document.getElementById('printMessage').textContent = "Proposal formatted for PDF/Print. Check your browser's print dialog.";
+                    document.getElementById('printMessage').classList.remove('hidden');
+                    document.getElementById('printMessage').classList.remove('bg-red-100', 'text-red-700');
+                    document.getElementById('printMessage').classList.add('bg-green-100', 'text-green-700');
+                    setTimeout(() => document.getElementById('printMessage').classList.add('hidden'), 5000);
+                } catch (e) {
+                    showMessage("Error: The print dialog could not be opened.", true);
+                }
+            }, 100);
+        }
 
-            const providerName = document.getElementById('providerName').value;
-            const clientName = document.getElementById('clientName').value;
-            const agreementDate = document.getElementById('agreementDate').value;
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            
-            const serviceList = document.getElementById('serviceList').value.split('\n').filter(s => s.trim() !== '');
-            const providerRoles = document.getElementById('providerRoles').value.split('\n').filter(s => s.trim() !== '');
-            const clientRoles = document.getElementById('clientRoles').value.split('\n').filter(s => s.trim() !== '');
-            
-            const kpiInput = document.getElementById('kpiList').value.split('\n');
-            const kpiList = kpiInput
-                .filter(line => line.trim() !== '')
-                .map(item => {
-                    const parts = item.split(',');
-                    return { name: parts[0] ? parts[0].trim() : '', target: parts[1] ? parts[1].trim() : '' };
-                });
-            
-            // --- Payment Variables ---
-            const paymentType = document.getElementById('paymentType').value;
-            const paymentDay = document.getElementById('paymentDay').value;
-            const monthlyData = parsePaymentItems('monthlyPaymentItems');
-            const oneTimeData = parsePaymentItems('oneTimePaymentItems');
-            const grandTotal = monthlyData.totalCost + oneTimeData.totalCost;
+        window.onload = () => {
+            const today = new Date().toISOString().split('T')[0];
+            const addDaysToDateString = (dateStr, days) => {
+                const date = createLocalTimeDate(dateStr);
+                date.setDate(date.getDate() + days); 
+                return date.toISOString().split('T')[0];
+            };
 
-            // --- 2. POPULATE THE PREVIEW PANE ---
-            
-            // --- NEW: Update Logos ---
-            updateLogo('out-providerLogo', providerLogoUrl);
-            updateLogo('out-clientLogo', clientLogoUrl);
+            const todayStr = today;
+            const defaultEndDate30Str = addDaysToDateString(todayStr, 30); 
+            const defaultStartDate45Str = addDaysToDateString(todayStr, 30);
+            const defaultEndDate45Str = addDaysToDateString(defaultStartDate45Str, 15);
 
-            // Helper function to create bullet points
-            function createList(elementId, items) {
-                const ul = document.getElementById(elementId);
-                ul.innerHTML = ''; // Clear old items
-                items.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = item;
-                    ul.appendChild(li);
-                });
-            }
+            // Add default Creation Services
+            addCreationService({ name: 'Website Creation', cost: 5000, startDate: todayStr, endDate: defaultEndDate30Str });
+            addCreationService({ name: 'Content Creation', cost: 1500, startDate: todayStr, endDate: defaultEndDate30Str, isVariable: true }); // Example variable cost
+            addCreationService({ name: 'Brand Identity Creation', cost: 3000, startDate: defaultStartDate45Str, endDate: defaultEndDate45Str });
 
-            // Populate simple text
-            document.getElementById('out-providerName').textContent = providerName;
-            document.getElementById('out-clientName').textContent = clientName;
-            document.getElementById('out-agreementDate').textContent = agreementDate;
-            document.getElementById('out-startDate').textContent = startDate;
-            document.getElementById('out-endDate').textContent = endDate;
-
-            // Populate lists
-            createList('out-serviceList', serviceList);
-            createList('out-providerRoles', providerRoles);
-            createList('out-clientRoles', clientRoles);
-            
-            // Populate KPI list
-            const kpiUl = document.getElementById('out-kpiList');
-            kpiUl.innerHTML = '';
-            kpiList.forEach(kpi => {
-                const li = document.createElement('li');
-                li.innerHTML = `<strong>${kpi.name}:</strong> ${kpi.target}`;
-                kpiUl.appendChild(li);
+            // Add listeners to static inputs
+            document.getElementById('addCreationServiceBtn').addEventListener('click', () => {
+                addCreationService({ name: '', cost: 0, startDate: '', endDate: '' });
             });
             
-            // --- Populate Payment Section (with show/hide logic) ---
-            const monthlyDiv = document.getElementById('out-monthly-payment');
-            const onetimeDiv = document.getElementById('out-onetime-payment');
-            const grandTotalDiv = document.getElementById('out-grand-total');
-            
-            monthlyDiv.classList.add('hidden');
-            onetimeDiv.classList.add('hidden');
-            grandTotalDiv.classList.add('hidden');
+            // Add default Management Services (now dynamic)
+            addManagementService({ name: 'Media Buying (Google Ads, LinkedIn)', cost: 1500, isVariable: true }); // Example variable cost
+            addManagementService({ name: 'Web Merchandising', cost: 800 });
+            addManagementService({ name: 'Web Data Entry', cost: 500 });
+            addManagementService({ name: 'CRM Management', cost: 1200 });
+            addManagementService({ name: 'Data Analytics & Reporting', cost: 950 });
 
-            if (paymentType === 'monthly' || paymentType === 'both') {
-                document.getElementById('out-paymentDay').textContent = paymentDay;
-                populatePaymentTable('out-monthlyPaymentItems', 'out-monthlyTotal-row', 'out-monthlyTotal', monthlyData.items, monthlyData.totalCost);
-                monthlyDiv.classList.remove('hidden');
-            }
+            document.getElementById('addManagementServiceBtn').addEventListener('click', () => {
+                addManagementService({ name: '', cost: 0 });
+            });
+
+            const staticInputs = document.querySelectorAll('.input-card > div > div > div > input, .input-card > div > div > div > select');
+            staticInputs.forEach(input => {
+                input.addEventListener('input', updateProposalPreview);
+                input.addEventListener('change', updateProposalPreview);
+            });
             
-            if (paymentType === 'onetime' || paymentType === 'both') {
-                populatePaymentTable('out-oneTimePaymentItems', 'out-oneTimeTotal-row', 'out-oneTimeTotal', oneTimeData.items, oneTimeData.totalCost);
-                onetimeDiv.classList.remove('hidden');
-            }
-            
-            if (paymentType === 'both') {
-                document.getElementById('out-grandTotalValue').textContent = grandTotal.toLocaleString();
-                grandTotalDiv.classList.remove('hidden');
-            }
-            
-            // --- 3. GENERATE THE PDF (if triggered) ---
-            if (isPdfDownload) {
-                const element = document.getElementById('sla-output');
-                const opt = {
-                    margin:       0.5,
-                    filename:     `SLA_${providerName}_${clientName}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true }, // useCORS is important for external images
-                    jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                };
-                html2pdf().set(opt).from(element).save();
-            }
+            document.getElementById('currencySelect').addEventListener('change', updateProposalPreview);
+            document.getElementById('customerName').addEventListener('input', updateProposalPreview);
+            document.getElementById('customerIndustry').addEventListener('input', updateProposalPreview);
+
+            // Initialize the proposal preview when the page loads
+            updateProposalPreview();
         }
-        
-        // Add event listeners to all inputs to update preview automatically
-        document.querySelectorAll('input, textarea, select').forEach(input => {
-            input.addEventListener('keyup', () => generateSLA(false)); // for typing
-            input.addEventListener('change', () => generateSLA(false)); // for selects
-        });
-
-        // Run once on page load to fill preview with default values
-        window.onload = () => {
-            togglePaymentSections();
-            generateSLA(false); // false = don't download PDF, just update preview
-        };
-        
-        // Overwrite the button's onclick to use the new function
-        document.querySelector('button').onclick = () => generateSLA(true);
-        
     </script>
 </body>
 </html>
